@@ -1,34 +1,42 @@
+
 <!DOCTYPE html>
 <html lang="tg">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>3D Hand Zoom</title>
+    <title>Futuristic Hand Zoom 3D</title>
     <style>
         * { box-sizing: border-box; }
         body, html {
             margin: 0; padding: 0; width: 100%; height: 100%;
-            overflow: hidden; background-color: #050510; font-family: sans-serif;
+            overflow: hidden; background-color: #030712; font-family: 'Segoe UI', Roboto, sans-serif;
         }
         #webcam {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            object-fit: cover; opacity: 0.25; transform: scaleX(-1); z-index: 1;
+            object-fit: cover; opacity: 0.15; transform: scaleX(-1); z-index: 1; filter: grayscale(100%) contrast(150%);
         }
         #canvas-container {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2;
         }
+        #hud-container {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 3;
+            pointer-events: none;
+        }
         #status {
-            position: absolute; top: 15px; right: 15px; z-index: 10;
-            background: rgba(0,0,0,0.7); color: #00ffcc; padding: 8px 16px;
-            border-radius: 20px; font-size: 13px; font-weight: bold;
-            border: 1px solid #00ffcc;
+            position: absolute; top: 20px; right: 20px;
+            background: rgba(15, 23, 42, 0.75); color: #38bdf8; padding: 10px 20px;
+            border-radius: 30px; font-size: 14px; font-weight: 600;
+            border: 1px solid rgba(56, 189, 248, 0.3); backdrop-filter: blur(8px);
+            box-shadow: 0 0 20px rgba(56, 189, 248, 0.15);
         }
         #info {
-            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
-            z-index: 10; background: rgba(0,0,0,0.7); color: #fff;
-            padding: 8px 16px; border-radius: 20px; font-size: 13px; text-align: center;
-            width: 85%; max-width: 350px; border: 1px solid rgba(255,255,255,0.2);
+            position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
+            background: rgba(15, 23, 42, 0.75); color: #f8fafc;
+            padding: 10px 24px; border-radius: 30px; font-size: 14px; text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.15); backdrop-filter: blur(8px);
+            letter-spacing: 0.5px;
         }
+        #info span { color: #38bdf8; font-weight: bold; }
     </style>
     <!-- Three.js CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -40,70 +48,137 @@
 
     <video id="webcam" playsinline webkit-playsinline autoplay muted></video>
     <div id="canvas-container"></div>
-    <div id="status">⏳ Интизори даст...</div>
-    <div id="info">👌 Ангушти калон ва шаҳодатро наздику дур кунед</div>
+    <div id="hud-container">
+        <div id="status">⚡ Интизори даст...</div>
+        <div id="info">🖐️ <span>Пинчи мулоим</span> — Micro-Gesture Pinch Zoom</div>
+    </div>
 
     <script>
         const statusEl = document.getElementById('status');
         const videoElement = document.getElementById('webcam');
 
-        // 1. Scene & Render
+        // --- 1. Three.js Scene Setup (Futuristic UI) ---
         const container = document.getElementById('canvas-container');
         const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.z = 4;
+        scene.fog = new THREE.FogExp2(0x030712, 0.15);
 
-        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 0, 4);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         container.appendChild(renderer.domElement);
 
-        // Light
-        const light = new THREE.DirectionalLight(0xffffff, 1);
-        light.position.set(1, 1, 2);
-        scene.add(light);
-        scene.add(new THREE.AmbientLight(0x404040, 1.5));
+        // Grid background effect
+        const gridHelper = new THREE.GridHelper(10, 20, 0x38bdf8, 0x1e293b);
+        gridHelper.position.y = -1.5;
+        gridHelper.rotation.x = 0.2;
+        scene.add(gridHelper);
 
-        // 3D Cube
-        const geometry = new THREE.BoxGeometry(1.2, 1.2, 1.2);
-        const material = new THREE.MeshStandardMaterial({ color: 0x00ffcc, wireframe: false, roughness: 0.3 });
-        const cube = new THREE.Mesh(geometry, material);
-        scene.add(cube);
+        // Lights
+        const pointLight = new THREE.PointLight(0x38bdf8, 2, 10);
+        pointLight.position.set(2, 2, 2);
+        scene.add(pointLight);
 
-        // Resize handler
+        const purpleLight = new THREE.PointLight(0xa855f7, 2, 10);
+        purpleLight.position.set(-2, -2, 2);
+        scene.add(purpleLight);
+
+        scene.add(new THREE.AmbientLight(0x0f172a, 2));
+
+        // Main Holographic Object Group
+        const objectGroup = new THREE.Group();
+        scene.add(objectGroup);
+
+        // Inner glowing cube
+        const innerGeo = new THREE.BoxGeometry(0.9, 0.9, 0.9);
+        const innerMat = new THREE.MeshStandardMaterial({
+            color: 0x0284c7,
+            roughness: 0.1,
+            metalness: 0.8,
+            wireframe: false
+        });
+        const innerCube = new THREE.Mesh(innerGeo, innerMat);
+        objectGroup.add(innerCube);
+
+        // Outer Cyber Wireframe
+        const outerGeo = new THREE.BoxGeometry(1.3, 1.3, 1.3);
+        const outerWire = new THREE.WireframeGeometry(outerGeo);
+        const lineMat = new THREE.LineBasicMaterial({ color: 0x38bdf8, linewidth: 2, transparent: true, opacity: 0.6 });
+        const wireframeCube = new THREE.LineSegments(outerWire, lineMat);
+        objectGroup.add(wireframeCube);
+
+        // Particles surrounding object
+        const particleGeo = new THREE.BufferGeometry();
+        const particleCount = 60;
+        const posArray = new Float32Array(particleCount * 3);
+        for(let i=0; i<particleCount*3; i++) {
+            posArray[i] = (Math.random() - 0.5) * 3;
+        }
+        particleGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+        const particleMat = new THREE.PointsMaterial({ size: 0.03, color: 0x38bdf8, transparent: true, opacity: 0.8 });
+        const particles = new THREE.Points(particleGeo, particleMat);
+        objectGroup.add(particles);
+
+        // Resize Event
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
 
-        // 2. MediaPipe logic
-        let baseDist = null;
+        // --- 2. LERP & Smooth Logic ---
+        let targetScale = 1.0;
+        let currentScale = 1.0;
+        let targetPosX = 0, targetPosY = 0;
+        let currentPosX = 0, currentPosY = 0;
+        let isHandDetected = false;
 
+        function lerp(start, end, amt) {
+            return (1 - amt) * start + amt * end;
+        }
+
+        // --- 3. MediaPipe Tracking ---
         function onResults(results) {
             if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                isHandDetected = true;
                 const hand = results.multiHandLandmarks[0];
-                const thumb = hand[4];  // Thumb tip
-                const index = hand[8];  // Index tip
+                
+                const thumb = hand[4];  // Thumb Tip
+                const index = hand[8];  // Index Tip
+                const wrist = hand[0];  // Wrist position for smooth hand tracking
 
-                // 3D distance
+                // Distance calculation for scale
                 const dx = thumb.x - index.x;
                 const dy = thumb.y - index.y;
-                const dist = Math.sqrt(dx * dx + dy * dy);
+                const dz = thumb.z - index.z;
+                const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
-                if (!baseDist) baseDist = dist;
+                // Sensitivity mapping (Micro-gestures adjustment)
+                // Base dist normalized ~0.03 (close) to 0.25 (far pinch)
+                const minDist = 0.03;
+                const maxDist = 0.22;
+                const clampedDist = Math.max(minDist, Math.min(maxDist, dist));
+                
+                // Scale target (smooth range between 0.4x and 3.0x)
+                targetScale = 0.4 + ((clampedDist - minDist) / (maxDist - minDist)) * 2.6;
 
-                // Scale Logic
-                let scale = (dist / baseDist) * 1.5;
-                scale = Math.max(0.4, Math.min(scale, 3.5)); // Min/Max limit
+                // Position tracking (Object follows hand position smoothly)
+                targetPosX = (0.5 - wrist.x) * 3;
+                targetPosY = (0.5 - wrist.y) * 2;
 
-                cube.scale.set(scale, scale, scale);
-                statusEl.innerText = `🔍 Андоза: ${scale.toFixed(1)}x`;
-                statusEl.style.color = '#00ffcc';
+                statusEl.innerText = `🔍 Андоза: ${currentScale.toFixed(2)}x`;
+                statusEl.style.color = '#38bdf8';
+                statusEl.style.borderColor = 'rgba(56, 189, 248, 0.6)';
             } else {
-                baseDist = null;
-                statusEl.innerText = '🖐️ Даст нишон диҳед';
-                statusEl.style.color = '#ffcc00';
+                isHandDetected = false;
+                targetScale = 1.0;
+                targetPosX = 0;
+                targetPosY = 0;
+                statusEl.innerText = '⚡ Интизори даст...';
+                statusEl.style.color = '#f59e0b';
+                statusEl.style.borderColor = 'rgba(245, 158, 11, 0.4)';
             }
         }
 
@@ -113,36 +188,49 @@
 
         hands.setOptions({
             maxNumHands: 1,
-            modelComplexity: 0, // 0 - Суръати тез барои телефон
-            minDetectionConfidence: 0.5,
-            minTrackingConfidence: 0.5
+            modelComplexity: 1, // 1 - Барои санҷиши саҳеҳтари микро-ҳаракатҳо
+            minDetectionConfidence: 0.6,
+            minTrackingConfidence: 0.6
         });
 
         hands.onResults(onResults);
 
+        // High FPS camera pipeline
         const cameraUtils = new Camera(videoElement, {
             onFrame: async () => {
                 await hands.send({ image: videoElement });
             },
-            width: 480,
-            height: 640,
+            width: 1280,
+            height: 720,
             facingMode: "user"
         });
 
-        cameraUtils.start().then(() => {
-            statusEl.innerText = "✅ Камера фаъол";
-        }).catch(err => {
-            statusEl.innerText = "❌ Иҷозати камера нест";
-            statusEl.style.color = "#ff4444";
-        });
+        cameraUtils.start();
 
-        // Animation Loop
+        // --- 4. Render Loop (Smooth 120FPS Animation) ---
         function animate() {
             requestAnimationFrame(animate);
-            cube.rotation.x += 0.01;
-            cube.rotation.y += 0.01;
+
+            // Smooth Interpolation (LERP) - 0.1 factor eliminates hand shaking
+            currentScale = lerp(currentScale, targetScale, 0.08);
+            currentPosX = lerp(currentPosX, targetPosX, 0.06);
+            currentPosY = lerp(currentPosY, targetPosY, 0.06);
+
+            // Apply scale & positions
+            objectGroup.scale.set(currentScale, currentScale, currentScale);
+            objectGroup.position.x = currentPosX;
+            objectGroup.position.y = currentPosY;
+
+            // Continuous rotation for visual effect
+            innerCube.rotation.x += 0.005;
+            innerCube.rotation.y += 0.01;
+            wireframeCube.rotation.x -= 0.008;
+            wireframeCube.rotation.y -= 0.005;
+            particles.rotation.y += 0.002;
+
             renderer.render(scene, camera);
         }
+
         animate();
     </script>
 </body>
