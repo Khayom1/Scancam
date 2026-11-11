@@ -79,7 +79,7 @@ function onResults(results){
  const hand=list[0],state=gestureEngine.update(hand);if(!state.valid)return;handSeenAt=performance.now();drawHand(hand);
  const x=state.cursor.x*innerWidth,y=state.cursor.y*innerHeight;cursorEl.style.display="block";cursorEl.style.left=x+"px";cursorEl.style.top=y+"px";cursorEl.classList.toggle("pinching",state.pinch);
  const wrist=hand[0];targetX=Math.max(-1.25,Math.min(1.25,(.5-state.cursor.x)*2.5));targetY=Math.max(-.85,Math.min(.85,(.5-state.cursor.y)*1.7));
- targetScale=state.pinch?Math.max(.55,Math.min(2.8,1.15/Math.max(.22,state.pinchRatio))):1;
+ targetScale=state.pinch?Math.max(.55,Math.min(2.8,.55+((state.pinchRatio-.12)/.31)*2.25)):1;
  if(state.pinchStarted){const el=document.elementFromPoint(x,y);pinchButton=el&&el.closest?el.closest("button[data-gesture-action]"):null}
  if(state.pinchEnded){if(pinchButton&&pinchButton.isConnected){const rect=pinchButton.getBoundingClientRect();if(x>=rect.left&&x<=rect.right&&y>=rect.top&&y<=rect.bottom)pinchButton.click()}pinchButton=null}
  const fingers=Object.entries(state.extended).filter(([k,v])=>v).map(([k])=>k).join(",")||"closed";
