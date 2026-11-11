@@ -29,7 +29,7 @@ button{border:0;border-radius:11px;padding:11px 16px;font-weight:700;font-size:1
 (() => {
 "use strict";
 const $=id=>document.getElementById(id),video=$("webcam"),statusEl=$("status"),errorEl=$("error"),startBtn=$("startBtn"),stopBtn=$("stopBtn"),metricsEl=$("metrics");
-let renderer,scene,camera,objectGroup,innerCube,wireCube,particles,hands=null,stream=null,frameId=0,processing=false,running=false;
+let renderer,scene,camera,objectGroup,innerCube,wireCube,particles,hands=null,stream=null,renderFrameId=0,processFrameId=0,processing=false,running=false;
 let lastInference=0,lastFpsTime=0,frameCount=0,fps=0,handSeenAt=0,lastUiUpdate=0;
 let targetScale=1,currentScale=1,targetX=0,targetY=0,currentX=0,currentY=0;
 function setStatus(message,color){statusEl.textContent=message;statusEl.style.color=color||"#fbbf24"}
@@ -56,7 +56,7 @@ function initScene(){
 function onResize(){if(!renderer||!camera)return;camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.5));renderer.setSize(innerWidth,innerHeight)}
 function onContextLost(e){e.preventDefault();stopCamera();showError("WebGL context қатъ шуд. Саҳифаро нав кунед.")}
 function renderLoop(now){
- if(!renderer)return;frameId=requestAnimationFrame(renderLoop);const dt=Math.min((now-(renderLoop.last||now))/1000,.05);renderLoop.last=now;
+ if(!renderer)return;renderFrameId=requestAnimationFrame(renderLoop);const dt=Math.min((now-(renderLoop.last||now))/1000,.05);renderLoop.last=now;
  const smoothing=1-Math.exp(-10*dt);currentScale=lerp(currentScale,targetScale,smoothing);currentX=lerp(currentX,targetX,smoothing);currentY=lerp(currentY,targetY,smoothing);
  objectGroup.scale.setScalar(currentScale);objectGroup.position.set(currentX,currentY,0);
  innerCube.rotation.x+=dt*.55;innerCube.rotation.y+=dt*.9;wireCube.rotation.x-=dt*.42;wireCube.rotation.y-=dt*.3;particles.rotation.y+=dt*.12;renderer.render(scene,camera);
@@ -81,7 +81,7 @@ async function startCamera(){
   hands=new Hands({locateFile:file=>"https://cdn.jsdelivr.net/npm/@mediapipe/hands/"+file});
   hands.setOptions({maxNumHands:1,modelComplexity:0,minDetectionConfidence:.6,minTrackingConfidence:.55});hands.onResults(onResults);
   running=true;processing=false;lastInference=0;stopBtn.disabled=false;startBtn.textContent="Камера фаъол аст";setStatus("● Камера фаъол — даст нишон диҳед","#38bdf8");
-  lastFpsTime=performance.now();frameCount=0;renderLoop.last=0;if(!frameId)frameId=requestAnimationFrame(renderLoop);processFrames();
+  lastFpsTime=performance.now();frameCount=0;renderLoop.last=0;if(!renderFrameId)renderFrameId=requestAnimationFrame(renderLoop);processFrames();
  }catch(err){
   await stopCamera();const name=err&&err.name||"";let message="Камера фаъол нашуд: "+(err&&err.message||"хатои номаълум");
   if(name==="NotAllowedError"||name==="PermissionDeniedError")message="Иҷозати камера рад шуд. Дар танзимоти браузер барои ин сайт Camera → Allow интихоб кунед.";
@@ -95,17 +95,17 @@ async function processFrames(){
  if(video.readyState>=HTMLMediaElement.HAVE_CURRENT_DATA&&!processing&&now-lastInference>=33){
   processing=true;lastInference=now;try{await hands.send({image:video})}catch(err){if(running)showError("Хатои коркарди тасвир: "+(err.message||""))}finally{processing=false}
  }
- if(running)frameId=requestAnimationFrame(processFrames);
+ if(running)processFrameId=requestAnimationFrame(processFrames);
 }
 async function stopCamera(){
- running=false;if(frameId){cancelAnimationFrame(frameId);frameId=0}
+ running=false;if(processFrameId){cancelAnimationFrame(processFrameId);processFrameId=0}
  if(stream){stream.getTracks().forEach(track=>track.stop());stream=null}
  video.pause();video.srcObject=null;if(hands){try{await hands.close()}catch(_){}hands=null}
  processing=false;targetScale=1;targetX=0;targetY=0;stopBtn.disabled=true;startBtn.textContent="Фаъол кардани камера";
  if(errorEl.style.display==="none"||!errorEl.style.display)setStatus("● Камера хомӯш аст");
 }
 startBtn.addEventListener("click",startCamera);stopBtn.addEventListener("click",stopCamera);
-addEventListener("pagehide",()=>{stopCamera();if(renderer){renderer.dispose();renderer=null}});
+addEventListener("pagehide",()=>{stopCamera();if(renderFrameId){cancelAnimationFrame(renderFrameId);renderFrameId=0}if(renderer){renderer.dispose();renderer=null}});
 try{initScene();frameId=requestAnimationFrame(renderLoop)}catch(err){showError(err.message||String(err))}
 })();
 </script></body></html>
