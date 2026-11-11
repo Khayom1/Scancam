@@ -23,4 +23,5 @@ class GestureEngine{constructor(){this.state={pinch:false};this.cursor=null;this
  return {...r,cursor:{...this.cursor},stable,stableFrames:this.candidateFrames,pinch:this.state.pinch,pinchStarted:!was&&this.state.pinch,pinchEnded:was&&!this.state.pinch}}
  reset(){this.state={pinch:false};this.cursor=null;this.candidate="";this.candidateFrames=0;this.missing=0}}
 root.AuraGestureCore={CONNECTIONS,dist,analyze,GestureEngine};
+if(typeof module!=="undefined"&&module.exports)module.exports=root.AuraGestureCore;
 })(globalThis);
