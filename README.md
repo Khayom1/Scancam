@@ -15,11 +15,22 @@
 
 ---
 
+## Release
+
+**Current version: 1.0.1**
+
+This patch release fixes startup dependency loading. The application now loads Three.js and MediaPipe sequentially at runtime, tries alternate CDN sources when the primary source fails, and initializes the 3D scene only after the libraries are available. It also fixes the initial animation-frame identifier.
+
+Release validation performed for v1.0.1:
+- JavaScript syntax validation passed.
+- Static regression checks passed for dependency fallback, startup ordering, version metadata, and independent render/camera-processing loops.
+- A real-device camera permission, MediaPipe inference, WebGL rendering, and mobile performance test has **not** been performed in this release environment.
+
 ## Overview
 
 ScanCam is a browser-based hand-tracking demo. It uses the device camera and MediaPipe Hands to detect a hand, then maps the distance between the thumb tip and index-finger tip to the scale of a holographic 3D object.
 
-The project is a static web application. It does not require an application backend, account, or installation. Three.js and MediaPipe are loaded from public CDNs.
+The project is a static web application. It does not require an application backend, account, or installation. Three.js and MediaPipe are loaded at runtime from public CDNs, with alternate CDN sources attempted if the primary source is unavailable.
 
 > **Status: Prototype / experimental.** This is not a production-ready biometric, security, or accessibility system. Performance and compatibility depend on the device, browser, lighting, and network.
 
