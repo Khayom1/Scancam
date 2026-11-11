@@ -2,8 +2,8 @@
 <html lang="tg"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#030712">
 <meta name="description" content="ScanCam — real-time hand tracking and 3D gesture interaction in your browser.">
-<title>ScanCam — Gesture-controlled 3D</title>
-<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin><link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+<title>ScanCam v1.0.1 — Gesture-controlled 3D</title>
+<meta name="application-version" content="1.0.1">
 <style>
 :root{color-scheme:dark;--bg:#030712;--panel:rgba(15,23,42,.82);--line:rgba(148,163,184,.2);--cyan:#38bdf8;--muted:#94a3b8}
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;color:#f8fafc}
@@ -19,23 +19,30 @@ button{border:0;border-radius:11px;padding:11px 16px;font-weight:700;font-size:1
 #metrics{position:absolute;left:16px;bottom:110px;color:#94a3b8;font:11px ui-monospace,monospace;z-index:2;pointer-events:none}
 @media(max-width:520px){.brand{padding:10px 12px}.status{font-size:11px;padding:9px 10px}.controls{width:100%;justify-content:center}.controls button{flex:1;padding:12px 8px}.bottom{font-size:12px}}
 </style>
-<script defer src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script><script defer src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
 </head><body>
 <video id="webcam" playsinline muted autoplay aria-label="Camera preview"></video><div id="stage"></div>
-<div id="hud"><div class="top"><div class="brand"><strong>SCANCAM</strong><small>REAL-TIME GESTURE ENGINE</small></div><div id="status" class="status" role="status" aria-live="polite">● Камера хомӯш аст</div></div>
+<div id="hud"><div class="top"><div class="brand"><strong>SCANCAM <span style="color:#38bdf8;font-size:10px">v1.0.1</span></strong><small>REAL-TIME GESTURE ENGINE</small></div><div id="status" class="status" role="status" aria-live="polite">● Камера хомӯш аст</div></div>
 <div><div class="bottom">Ангушти калон ва ишоратиро ба ҳам наздик ё дур кунед — <b>объекти 3D</b> тағйир меёбад.</div><div class="controls"><button id="startBtn" type="button">Фаъол кардани камера</button><button id="stopBtn" class="secondary" type="button" disabled>Қатъ кардан</button></div></div></div>
 <div id="metrics">FPS: — · HAND: — · ZOOM: 1.00×</div><div id="error" role="alert"></div>
 <script>
 (() => {
 "use strict";
 const $=id=>document.getElementById(id),video=$("webcam"),statusEl=$("status"),errorEl=$("error"),startBtn=$("startBtn"),stopBtn=$("stopBtn"),metricsEl=$("metrics");
-let renderer,scene,camera,objectGroup,innerCube,wireCube,particles,hands=null,stream=null,renderFrameId=0,processFrameId=0,processing=false,running=false;
+let renderer,scene,camera,objectGroup,innerCube,wireCube,particles,hands=null,stream=null,renderFrameId=0,processFrameId=0,processing=false,running=false,mediaPipeBase="https://cdn.jsdelivr.net/npm/@mediapipe/hands/",librariesPromise=null;
 let lastInference=0,lastFpsTime=0,frameCount=0,fps=0,handSeenAt=0,lastUiUpdate=0;
 let targetScale=1,currentScale=1,targetX=0,targetY=0,currentX=0,currentY=0;
 function setStatus(message,color){statusEl.textContent=message;statusEl.style.color=color||"#fbbf24"}
 function showError(message){errorEl.textContent=message;errorEl.style.display="block";setStatus("● Хато","#f87171")}
 function hideError(){errorEl.style.display="none"}
 function lerp(a,b,t){return a+(b-a)*t}
+function loadScript(url){return new Promise((resolve,reject)=>{const script=document.createElement("script");script.src=url;script.async=true;script.onload=()=>resolve();script.onerror=()=>{script.remove();reject(Error("Load failed: "+url))};document.head.appendChild(script)})}
+async function loadFirst(candidates,ready){if(ready())return;let lastError;for(const url of candidates){try{await loadScript(url);if(ready())return}catch(error){lastError=error}}throw lastError||Error("Library load failed")}
+function ensureLibraries(){if(librariesPromise)return librariesPromise;librariesPromise=(async()=>{
+ await loadFirst(["https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js","https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js","https://unpkg.com/three@0.128.0/build/three.min.js"],()=>!!window.THREE);
+ const bases=["https://cdn.jsdelivr.net/npm/@mediapipe/hands/","https://unpkg.com/@mediapipe/hands/"];let lastError;
+ for(const base of bases){try{await loadScript(base+"hands.js");if(window.Hands){mediaPipeBase=base;break}}catch(error){lastError=error}}
+ if(!window.Hands)throw lastError||Error("MediaPipe Hands failed to load");return true
+})().catch(error=>{librariesPromise=null;throw error});return librariesPromise}
 function initScene(){
  if(renderer)return;if(!window.THREE)throw Error("Three.js бор нашуд. Пайвасти интернетро санҷед.");
  const host=$("stage");scene=new THREE.Scene();scene.fog=new THREE.FogExp2(0x030712,.12);
@@ -73,12 +80,12 @@ function onResults(results){
 async function startCamera(){
  if(running)return;hideError();
  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){showError("Браузер дастрасӣ ба камераро дастгирӣ намекунад. Сайтро тавассути HTTPS ё localhost кушоед.");return}
- if(!window.Hands){showError("MediaPipe бор нашуд. Пайвасти интернетро санҷед ва саҳифаро нав кунед.");return}
- startBtn.disabled=true;setStatus("● Омодасозии камера…","#38bdf8");
+ startBtn.disabled=true;setStatus("● Боркунии муҳаррик…","#38bdf8");
  try{
+  await ensureLibraries();
   initScene();stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:"user"},width:{ideal:640},height:{ideal:480},frameRate:{ideal:30,max:30}}});
   video.srcObject=stream;await video.play();
-  hands=new Hands({locateFile:file=>"https://cdn.jsdelivr.net/npm/@mediapipe/hands/"+file});
+  hands=new Hands({locateFile:file=>mediaPipeBase+file});
   hands.setOptions({maxNumHands:1,modelComplexity:0,minDetectionConfidence:.6,minTrackingConfidence:.55});hands.onResults(onResults);
   running=true;processing=false;lastInference=0;stopBtn.disabled=false;startBtn.textContent="Камера фаъол аст";setStatus("● Камера фаъол — даст нишон диҳед","#38bdf8");
   lastFpsTime=performance.now();frameCount=0;renderLoop.last=0;if(!renderFrameId)renderFrameId=requestAnimationFrame(renderLoop);processFrames();
@@ -106,6 +113,6 @@ async function stopCamera(){
 }
 startBtn.addEventListener("click",startCamera);stopBtn.addEventListener("click",stopCamera);
 addEventListener("pagehide",()=>{stopCamera();if(renderFrameId){cancelAnimationFrame(renderFrameId);renderFrameId=0}if(renderer){renderer.dispose();renderer=null}});
-try{initScene();frameId=requestAnimationFrame(renderLoop)}catch(err){showError(err.message||String(err))}
+ensureLibraries().then(()=>{initScene();if(!renderFrameId)renderFrameId=requestAnimationFrame(renderLoop);setStatus("● Омода — камераро фаъол кунед","#38bdf8")}).catch(err=>{showError("Китобхонаҳои графикӣ бор нашуданд. Интернетро санҷед ё саҳифаро нав кунед.\\n"+(err.message||String(err)))})
 })();
 </script></body></html>
