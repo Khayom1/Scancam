@@ -61,7 +61,7 @@ function renderLoop(now){
  objectGroup.scale.setScalar(currentScale);objectGroup.position.set(currentX,currentY,0);
  innerCube.rotation.x+=dt*.55;innerCube.rotation.y+=dt*.9;wireCube.rotation.x-=dt*.42;wireCube.rotation.y-=dt*.3;particles.rotation.y+=dt*.12;renderer.render(scene,camera);
  frameCount++;if(now-lastFpsTime>=1000){fps=Math.round(frameCount*1000/(now-lastFpsTime));frameCount=0;lastFpsTime=now}
- if(now-lastUiUpdate>250){metricsEl.textContent="FPS: "+fps+" · HAND: "+(now-handSeenAt<800?"DETECTED":"—")+" · ZOOM: "+currentScale.toFixed(2)+"×";lastUiUpdate=now}
+ if(now-lastUiUpdate>250){const detected=now-handSeenAt<800;metricsEl.textContent="FPS: "+fps+" · HAND: "+(detected?"DETECTED":"—")+" · ZOOM: "+currentScale.toFixed(2)+"×";if(running&&!detected&&now-handSeenAt>1000)setStatus("● Даст нишон диҳед","#fbbf24");lastUiUpdate=now}
 }
 function onResults(results){
  const list=results.multiHandLandmarks;if(!list||!list.length){if(performance.now()-handSeenAt>250){targetScale=1;targetX=0;targetY=0}return}
@@ -93,7 +93,7 @@ async function startCamera(){
 async function processFrames(){
  if(!running)return;const now=performance.now();
  if(video.readyState>=HTMLMediaElement.HAVE_CURRENT_DATA&&!processing&&now-lastInference>=33){
-  processing=true;lastInference=now;try{await hands.send({image:video})}catch(err){if(running)showError("Хатои коркарди тасвир: "+(err.message||""))}finally{processing=false}
+  processing=true;lastInference=now;try{await hands.send({image:video})}catch(err){if(running){await stopCamera();showError("Хатои коркарди тасвир: "+(err.message||""))}}finally{processing=false}
  }
  if(running)processFrameId=requestAnimationFrame(processFrames);
 }
